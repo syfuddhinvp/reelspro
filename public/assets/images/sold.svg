@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" fill="none">
+<rect width="800" height="1000" fill="#0f172a"/>
+<rect x="120" y="380" width="560" height="240" rx="20" fill="#dc2626"/>
+<text x="400" y="540" text-anchor="middle" font-family="Inter,sans-serif" font-size="120" font-weight="900" fill="#fff" letter-spacing="6">SOLD</text>
+<rect x="380" y="620" width="40" height="300" fill="#94a3b8"/>
+</svg>

@@ -1,0 +1,72 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-rp-blue: #2563eb;
+  --color-rp-blue-dk: #1e40af;
+  --color-rp-blue-soft: #eff4ff;
+  --color-rp-navy: #0b2545;
+  --color-rp-ink: #0f172a;
+  --color-rp-slate: #475569;
+  --color-rp-mute: #64748b;
+  --color-rp-line: #e7ebf3;
+  --color-rp-bg: #f6f8fc;
+  --color-rp-sky: #38bdf8;
+  --color-rp-green: #16a34a;
+  --color-rp-gold: #f59e0b;
+  --color-rp-purple: #7c3aed;
+  --color-rp-red: #ef4444;
+  --font-sans: 'Inter', -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-rp-ink);
+}
+
+/* The rotate handle's connecting stem — a pseudo-element that's awkward in
+   pure utility classes, so it lives here. */
+.rp-rot-handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 13px;
+  width: 2px;
+  height: 15px;
+  background: var(--color-rp-blue);
+  transform: translateX(-50%);
+}
+
+/* Editable text asset: keep the on-canvas caret tidy. */
+.rp-text-asset {
+  outline: none;
+}
+
+/* Recording dot pulse in the meeting room. */
+@keyframes rp-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+.rp-pulse {
+  animation: rp-pulse 1.4s infinite;
+}
+
+/* Slimmer scrollbars to match the original app chrome. */
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-thumb {
+  background: #cfd8e8;
+  border-radius: 9px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
