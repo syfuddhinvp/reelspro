@@ -5,16 +5,39 @@ import { ASSET_TYPES } from '../assetTypes.ts';
 import { useEditor } from '../store.ts';
 import type { AlignHow } from '../store.ts';
 import { canvasSize } from '../util.ts';
+import { uploadSizeError, type UploadKind } from '../upload.ts';
 import { IN_ANIMS, OUT_ANIMS } from '../animations.ts';
 import { SCENE_BG_PRESETS } from '../data.ts';
+import { useApp } from '../appStore.ts';
 import CropModal from './CropModal.tsx';
+import TrimBar from './TrimBar.tsx';
+import {
+  AlignBottomIcon,
+  AlignCenterHIcon,
+  AlignCenterVIcon,
+  AlignLeftIcon,
+  AlignRightIcon,
+  AlignTopIcon,
+  ArrowDownIcon,
+  ArrowUpIcon,
+  DuplicateIcon,
+  MusicIcon,
+  PlayIcon,
+  PlusIcon,
+  ScissorsIcon,
+  SwapIcon,
+  TrashIcon,
+} from './icons.tsx';
 
 type Tab = 'scene' | 'layout' | 'style' | 'animate';
 
 export default function PropertiesPanel() {
   const scene = useEditor((s) => s.scenes[s.selScene]);
+  const globalAssets = useEditor((s) => s.globalAssets);
   const selAssetId = useEditor((s) => s.selAssetId);
-  const asset = scene.assets.find((a) => a.id === selAssetId) ?? null;
+  // an asset marked "show on all slides" lives in globalAssets, not the current scene
+  const asset =
+    scene.assets.find((a) => a.id === selAssetId) ?? globalAssets.find((a) => a.id === selAssetId) ?? null;
 
   const [tab, setTab] = useState<Tab>('scene');
 
@@ -33,24 +56,26 @@ export default function PropertiesPanel() {
 
   return (
     <div className="col right flex flex-col overflow-hidden border-l border-rp-line bg-white">
-      <div className="flex gap-1 border-b border-rp-line p-2">
-        {tabs.map((t) => {
-          const disabled = t.needsAsset && !asset;
-          return (
-            <button
-              key={t.id}
-              disabled={disabled}
-              onClick={() => setTab(t.id)}
-              className={`flex-1 rounded-lg py-[7px] text-[12.5px] font-semibold transition-colors ${
-                tab === t.id
-                  ? 'bg-rp-blue-soft text-rp-blue'
-                  : 'text-rp-slate hover:text-rp-blue'
-              } ${disabled ? 'cursor-not-allowed opacity-40 hover:text-rp-slate' : ''}`}
-            >
-              {t.label}
-            </button>
-          );
-        })}
+      <div className="flex gap-[3px] border-b border-rp-line bg-white p-2">
+        <div className="flex flex-1 gap-[3px] rounded-[10px] bg-rp-bg p-[3px]">
+          {tabs.map((t) => {
+            const disabled = t.needsAsset && !asset;
+            return (
+              <button
+                key={t.id}
+                disabled={disabled}
+                onClick={() => setTab(t.id)}
+                className={`flex-1 rounded-[8px] py-[7px] text-[12.5px] font-semibold ${
+                  tab === t.id
+                    ? 'bg-white text-rp-blue shadow-[var(--shadow-xs)]'
+                    : 'text-rp-slate hover:text-rp-blue'
+                } ${disabled ? 'cursor-not-allowed opacity-40 hover:text-rp-slate' : ''}`}
+              >
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
@@ -140,18 +165,24 @@ function SceneTab() {
       <SubLabel>Scene audio</SubLabel>
       {scene.audio ? (
         <div className="flex items-center gap-2 rounded-[10px] border border-rp-line p-[9px]">
-          <div className="grid h-7 w-7 flex-none place-items-center rounded-[7px] bg-rp-purple text-xs font-bold text-white">♪</div>
+          <div className="grid h-7 w-7 flex-none place-items-center rounded-[7px] bg-rp-purple text-white shadow-[var(--shadow-xs)]">
+            <MusicIcon size={14} />
+          </div>
           <b className="min-w-0 truncate text-[13px]">{scene.audio.name}</b>
-          <button onClick={() => setSceneAudio(null)} className="ml-auto cursor-pointer text-[13px] text-[#ef4444]">
-            ✕
+          <button
+            onClick={() => setSceneAudio(null)}
+            className="ml-auto grid h-6 w-6 flex-none cursor-pointer place-items-center rounded-md text-rp-mute hover:bg-rp-red-soft hover:text-rp-red"
+          >
+            <TrashIcon size={13} />
           </button>
         </div>
       ) : (
         <button
           onClick={() => audioRef.current?.click()}
-          className="w-full rounded-lg border border-rp-line bg-white py-[7px] text-[13px] font-semibold hover:border-rp-blue hover:text-rp-blue"
+          className="flex w-full items-center justify-center gap-[6px] rounded-lg border border-rp-line bg-white py-[7px] text-[13px] font-semibold hover:border-rp-blue hover:text-rp-blue"
         >
-          ＋ Add scene audio
+          <PlusIcon size={13} />
+          Add scene audio
         </button>
       )}
       <input
@@ -210,8 +241,9 @@ function LayoutTab({ asset, sceneDur }: { asset: Asset; sceneDur: number }) {
         </div>
         <button
           onClick={delAsset}
-          className="mt-2 block w-full cursor-pointer rounded-[9px] border border-rp-line bg-white px-[14px] py-2 text-[13px] font-semibold text-rp-ink hover:border-rp-red hover:text-rp-red"
+          className="mt-2 flex w-full cursor-pointer items-center justify-center gap-[6px] rounded-[9px] border border-rp-line bg-white px-[14px] py-2 text-[13px] font-semibold text-rp-ink hover:border-rp-red hover:bg-rp-red-soft hover:text-rp-red"
         >
+          <TrashIcon size={13} />
           Delete audio
         </button>
       </>
@@ -255,21 +287,33 @@ function LayoutTab({ asset, sceneDur }: { asset: Asset; sceneDur: number }) {
         </Field>
       </div>
 
-      <SubLabel>Timing · within {sceneDur}s scene</SubLabel>
-      <div className="grid grid-cols-3 gap-2">
-        <Field label="Start s">
-          <input type="number" min={0} max={sceneDur} step={0.5} value={asset.start} onChange={(e) => set({ start: Number(e.target.value) })} className={inputCls} />
-        </Field>
-        <Field label="End s">
-          <input type="number" min={0} max={sceneDur} step={0.5} value={asset.end} onChange={(e) => set({ end: Number(e.target.value) })} className={inputCls} />
-        </Field>
-        <Field label="" className="self-end">
-          <label className="m-0 flex items-center gap-2 text-[13px]">
-            <input type="checkbox" checked={asset.lockRatio} onChange={(e) => set({ lockRatio: e.target.checked })} />
-            Lock
-          </label>
-        </Field>
-      </div>
+      {isGlobal ? (
+        <p className="mb-3 text-[11px] text-rp-mute">
+          Shown on every scene, so scene timing doesn't apply here.
+        </p>
+      ) : (
+        <>
+          <SubLabel>Timing · within {sceneDur}s scene</SubLabel>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Start s">
+              <input type="number" min={0} max={sceneDur} step={0.5} value={asset.start} onChange={(e) => set({ start: Number(e.target.value) })} className={inputCls} />
+            </Field>
+            <Field label="End s">
+              <input type="number" min={0} max={sceneDur} step={0.5} value={asset.end} onChange={(e) => set({ end: Number(e.target.value) })} className={inputCls} />
+            </Field>
+          </div>
+          <div className="mb-3 h-[6px] w-full overflow-hidden rounded-full bg-rp-bg">
+            <div
+              className="h-full rounded-full bg-rp-blue/70"
+              style={{ marginLeft: `${(asset.start / sceneDur) * 100}%`, width: `${(asset.dur / sceneDur) * 100}%` }}
+            />
+          </div>
+        </>
+      )}
+      <label className="mb-3 flex items-center gap-2 text-[13px]">
+        <input type="checkbox" checked={asset.lockRatio} onChange={(e) => set({ lockRatio: e.target.checked })} />
+        Lock aspect ratio when resizing
+      </label>
       <label className="mb-3 flex items-center gap-2 text-[13px]">
         <input
           type="checkbox"
@@ -278,34 +322,50 @@ function LayoutTab({ asset, sceneDur }: { asset: Asset; sceneDur: number }) {
         />
         Editable by user (uncheck to lock in templates)
       </label>
-      <div className="mb-3 h-[6px] w-full overflow-hidden rounded-full bg-rp-bg">
-        <div
-          className="h-full rounded-full bg-rp-blue/70"
-          style={{ marginLeft: `${(asset.start / sceneDur) * 100}%`, width: `${(asset.dur / sceneDur) * 100}%` }}
-        />
-      </div>
 
       <SubLabel>Align in canvas</SubLabel>
-      <OptBtns>
-        <OptBtn title="Left edge" onClick={() => doAlign('left')}>⇤</OptBtn>
-        <OptBtn title="Center horizontally" onClick={() => doAlign('cx')}>⇆</OptBtn>
-        <OptBtn title="Right edge" onClick={() => doAlign('right')}>⇥</OptBtn>
-        <OptBtn title="Top edge" onClick={() => doAlign('top')}>⇡</OptBtn>
-        <OptBtn title="Center vertically" onClick={() => doAlign('cy')}>⇕</OptBtn>
-        <OptBtn title="Bottom edge" onClick={() => doAlign('bottom')}>⇣</OptBtn>
-      </OptBtns>
+      <div className="mb-3 grid grid-cols-6 gap-[6px]">
+        <AlignBtn title="Left edge" onClick={() => doAlign('left')}>
+          <AlignLeftIcon size={15} />
+        </AlignBtn>
+        <AlignBtn title="Center horizontally" onClick={() => doAlign('cx')}>
+          <AlignCenterHIcon size={15} />
+        </AlignBtn>
+        <AlignBtn title="Right edge" onClick={() => doAlign('right')}>
+          <AlignRightIcon size={15} />
+        </AlignBtn>
+        <AlignBtn title="Top edge" onClick={() => doAlign('top')}>
+          <AlignTopIcon size={15} />
+        </AlignBtn>
+        <AlignBtn title="Center vertically" onClick={() => doAlign('cy')}>
+          <AlignCenterVIcon size={15} />
+        </AlignBtn>
+        <AlignBtn title="Bottom edge" onClick={() => doAlign('bottom')}>
+          <AlignBottomIcon size={15} />
+        </AlignBtn>
+      </div>
 
       <SubLabel>Arrange</SubLabel>
       <OptBtns>
-        <OptBtn onClick={duplicateAsset}>⧉ Duplicate</OptBtn>
-        <OptBtn onClick={() => layer(1)}>↑ Forward</OptBtn>
-        <OptBtn onClick={() => layer(-1)}>↓ Back</OptBtn>
+        <OptBtn onClick={duplicateAsset}>
+          <DuplicateIcon size={14} className="mr-[5px] inline-block align-[-2px]" />
+          Duplicate
+        </OptBtn>
+        <OptBtn onClick={() => layer(1)}>
+          <ArrowUpIcon size={14} className="mr-[5px] inline-block align-[-2px]" />
+          Forward
+        </OptBtn>
+        <OptBtn onClick={() => layer(-1)}>
+          <ArrowDownIcon size={14} className="mr-[5px] inline-block align-[-2px]" />
+          Back
+        </OptBtn>
       </OptBtns>
 
       <button
         onClick={delAsset}
-        className="mt-2 block w-full cursor-pointer rounded-[9px] border border-rp-line bg-white px-[14px] py-2 text-[13px] font-semibold text-rp-ink hover:border-rp-red hover:text-rp-red"
+        className="mt-2 flex w-full cursor-pointer items-center justify-center gap-[6px] rounded-[9px] border border-rp-line bg-white px-[14px] py-2 text-[13px] font-semibold text-rp-ink hover:border-rp-red hover:bg-rp-red-soft hover:text-rp-red"
       >
+        <TrashIcon size={13} />
         Delete asset
       </button>
     </>
@@ -321,19 +381,59 @@ function StyleTab({ asset }: { asset: Asset }) {
   return (
     <>
       <SectionTitle>{ASSET_TYPES[asset.type].label} · style</SectionTitle>
+      {isMedia && <ReplaceMediaButton asset={asset} />}
       {asset.type === 'text' && <TextFields asset={asset} />}
       {asset.type === 'video' && <VideoFields asset={asset} onCrop={() => setCropOpen(true)} />}
       {asset.type === 'audio' && <AudioFields asset={asset} />}
       {(asset.type === 'image' || asset.type === 'logo') && (
         <button
           onClick={() => setCropOpen(true)}
-          className="mb-4 w-full rounded-lg border border-rp-line bg-white py-[7px] text-[13px] font-semibold text-rp-ink hover:border-rp-blue hover:text-rp-blue"
+          className="mb-4 flex w-full items-center justify-center gap-[6px] rounded-lg border border-rp-line bg-white py-[7px] text-[13px] font-semibold text-rp-ink hover:border-rp-blue hover:text-rp-blue"
         >
-          ✂ Crop image
+          <ScissorsIcon size={14} />
+          Crop image
         </button>
       )}
       {isMedia && <FrameFields asset={asset} />}
       {isMedia && cropOpen && <CropModal asset={asset} onClose={() => setCropOpen(false)} />}
+    </>
+  );
+}
+
+/** Swap this asset's underlying image/video file in place — crop, frame, position, size, and animations are untouched. */
+function ReplaceMediaButton({ asset }: { asset: Asset }) {
+  const updateAssetProps = useEditor((s) => s.updateAssetProps);
+  const toast = useApp((s) => s.toast);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const isVideo = asset.type === 'video';
+  const kind = asset.type as UploadKind;
+
+  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+
+    const err = uploadSizeError(kind, f);
+    if (err) return toast(err, 'warning');
+
+    const oldSrc = (asset.props as MediaProps | VideoProps).src;
+    const url = URL.createObjectURL(f);
+    // only the source changes — crop, frame, box size/position, and animations are left as-is
+    updateAssetProps(asset.id, { src: url });
+    if (oldSrc?.startsWith('blob:')) URL.revokeObjectURL(oldSrc);
+    toast(`Replaced ${isVideo ? 'video' : 'image'} — crop, frame & position kept`, 'success');
+  };
+
+  return (
+    <>
+      <button
+        onClick={() => fileRef.current?.click()}
+        className="mb-3 flex w-full items-center justify-center gap-[6px] rounded-lg border border-rp-line bg-white py-[7px] text-[13px] font-semibold text-rp-ink hover:border-rp-blue hover:text-rp-blue"
+      >
+        <SwapIcon size={14} />
+        Replace {isVideo ? 'video' : 'image'}
+      </button>
+      <input ref={fileRef} type="file" hidden accept={isVideo ? 'video/*' : 'image/*'} onChange={onFile} />
     </>
   );
 }
@@ -410,9 +510,10 @@ function VideoFields({ asset, onCrop }: { asset: Asset; onCrop: () => void }) {
     <>
       <button
         onClick={onCrop}
-        className="mb-3 w-full rounded-lg border border-rp-line bg-white py-[7px] text-[13px] font-semibold text-rp-ink hover:border-rp-blue hover:text-rp-blue"
+        className="mb-3 flex w-full items-center justify-center gap-[6px] rounded-lg border border-rp-line bg-white py-[7px] text-[13px] font-semibold text-rp-ink hover:border-rp-blue hover:text-rp-blue"
       >
-        ✂ Crop &amp; trim clip
+        <ScissorsIcon size={14} />
+        Crop &amp; trim clip
       </button>
       <div className="grid grid-cols-2 gap-2">
         <Field label="Trim start (s)">
@@ -472,6 +573,10 @@ function FrameFields({ asset }: { asset: Asset }) {
             onClick={() => setFrame({ radius: preset.radius })}
             className={isPreset(preset.radius) ? 'border-rp-blue bg-rp-blue-soft text-rp-blue' : ''}
           >
+            <span
+              className="mr-[6px] inline-block h-3 w-3 border-[1.5px] border-current align-[-2px]"
+              style={{ borderRadius: preset.radius >= FRAME_CIRCLE_RADIUS ? 999 : Math.min(preset.radius, 6) }}
+            />
             {preset.label}
           </OptBtn>
         ))}
@@ -536,6 +641,16 @@ function FrameFields({ asset }: { asset: Asset }) {
 function AudioFields({ asset }: { asset: Asset }) {
   const p = asset.props as AudioProps;
   const updateAssetProps = useEditor((s) => s.updateAssetProps);
+  const [duration, setDuration] = useState(0);
+
+  // once the source clip's real length is known, default trimEnd to "full clip"
+  useEffect(() => {
+    if (duration > 0 && p.trimEnd === 0) {
+      updateAssetProps(asset.id, { trimEnd: +duration.toFixed(2) });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [duration]);
+
   return (
     <>
       <Field label="Track">
@@ -543,16 +658,22 @@ function AudioFields({ asset }: { asset: Asset }) {
           {p.name || 'Audio clip'}
         </div>
       </Field>
-      <Field label="Trim start (s)">
-        <input
-          type="number"
-          min={0}
-          step={0.5}
-          value={p.trimStart}
-          onChange={(e) => updateAssetProps(asset.id, { trimStart: Number(e.target.value) })}
-          className={inputCls}
+
+      <audio src={p.src} preload="metadata" hidden onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)} />
+
+      <Field label={`Clip range · ${duration ? duration.toFixed(1) : '…'}s total`}>
+        <TrimBar
+          duration={duration}
+          start={p.trimStart}
+          end={p.trimEnd || duration}
+          onChange={(start, end) => updateAssetProps(asset.id, { trimStart: start, trimEnd: end })}
         />
       </Field>
+      <div className="mb-3 flex justify-between text-[12px] text-rp-mute">
+        <span>Start {p.trimStart.toFixed(1)}s</span>
+        <span>End {(p.trimEnd || duration).toFixed(1)}s</span>
+      </div>
+
       <Field label={`Volume (${Math.round(p.volume * 100)}%)`}>
         <input
           type="range"
@@ -598,9 +719,10 @@ function AnimationFields({ asset }: { asset: Asset }) {
       <button
         onClick={() => previewAsset(asset.id, 'in')}
         disabled={asset.animIn === 'none'}
-        className="mb-4 w-full rounded-lg border border-rp-line bg-white py-[7px] text-[13px] font-semibold text-rp-ink hover:border-rp-blue hover:text-rp-blue disabled:opacity-40"
+        className="mb-4 flex w-full items-center justify-center gap-[6px] rounded-lg border border-rp-line bg-white py-[7px] text-[13px] font-semibold text-rp-ink hover:border-rp-blue hover:text-rp-blue disabled:opacity-40 disabled:hover:border-rp-line disabled:hover:text-rp-ink"
       >
-        ▶ Preview entrance
+        <PlayIcon size={11} />
+        Preview entrance
       </button>
 
       <SubLabel>Exit</SubLabel>
@@ -615,14 +737,15 @@ function AnimationFields({ asset }: { asset: Asset }) {
       <button
         onClick={() => previewAsset(asset.id, 'out')}
         disabled={asset.animOut === 'none'}
-        className="w-full rounded-lg border border-rp-line bg-white py-[7px] text-[13px] font-semibold text-rp-ink hover:border-rp-blue hover:text-rp-blue disabled:opacity-40"
+        className="flex w-full items-center justify-center gap-[6px] rounded-lg border border-rp-line bg-white py-[7px] text-[13px] font-semibold text-rp-ink hover:border-rp-blue hover:text-rp-blue disabled:opacity-40 disabled:hover:border-rp-line disabled:hover:text-rp-ink"
       >
-        ▶ Preview exit
+        <PlayIcon size={11} />
+        Preview exit
       </button>
 
       <p className="mt-3 text-[11px] leading-relaxed text-rp-mute">
-        Tip: hit ▶ Play on the timeline to see entrances fire at each asset's start and exits near
-        its end.
+        Tip: hit <PlayIcon size={9} className="inline-block align-[-1px] text-rp-ink" /> Play on the
+        timeline to see entrances fire at each asset's start and exits near its end.
       </p>
     </>
   );
@@ -710,6 +833,27 @@ function OptBtn({
       title={title}
       onClick={onClick}
       className={`min-w-[42px] flex-1 cursor-pointer rounded-lg border border-rp-line bg-white p-[7px] text-[13px] font-semibold text-rp-ink hover:border-rp-blue hover:text-rp-blue ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Compact square icon button for the 6-up align grid — no min-width, so all six fit one row. */
+function AlignBtn({
+  children,
+  onClick,
+  title,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  title: string;
+}) {
+  return (
+    <button
+      title={title}
+      onClick={onClick}
+      className="grid aspect-square cursor-pointer place-items-center rounded-lg border border-rp-line bg-white text-rp-ink hover:border-rp-blue hover:bg-rp-blue-soft hover:text-rp-blue"
     >
       {children}
     </button>

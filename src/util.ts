@@ -61,3 +61,35 @@ export function frameStyle(f: FrameProps): CSSProperties {
     border: f.borderWidth > 0 ? `${f.borderWidth}px solid ${f.borderColor}` : undefined,
   };
 }
+
+/** Natural pixel size of an uploaded image, read before it's placed on the canvas. */
+export function loadImageSize(url: string): Promise<{ w: number; h: number }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+    img.onerror = () => reject(new Error('image failed to load'));
+    img.src = url;
+  });
+}
+
+/** Natural pixel size of an uploaded video, read from its metadata before placement. */
+export function loadVideoSize(url: string): Promise<{ w: number; h: number }> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => resolve({ w: video.videoWidth, h: video.videoHeight });
+    video.onerror = () => reject(new Error('video failed to load'));
+    video.src = url;
+  });
+}
+
+/**
+ * Scale (natW × natH) to fit inside (maxW × maxH) keeping its own aspect ratio —
+ * used to size a freshly-uploaded asset's box to its source instead of forcing
+ * a fixed box (which would crop it via object-fit: cover).
+ */
+export function fitBox(natW: number, natH: number, maxW: number, maxH: number): { w: number; h: number } {
+  if (!natW || !natH) return { w: maxW, h: maxH };
+  const scale = Math.min(maxW / natW, maxH / natH);
+  return { w: Math.round(natW * scale), h: Math.round(natH * scale) };
+}

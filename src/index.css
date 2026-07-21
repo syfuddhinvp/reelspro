@@ -9,13 +9,27 @@
   --color-rp-slate: #475569;
   --color-rp-mute: #64748b;
   --color-rp-line: #e7ebf3;
+  --color-rp-line-soft: #eef1f7;
   --color-rp-bg: #f6f8fc;
   --color-rp-sky: #38bdf8;
   --color-rp-green: #16a34a;
+  --color-rp-green-soft: #eafaf0;
   --color-rp-gold: #f59e0b;
+  --color-rp-gold-soft: #fef6e7;
   --color-rp-purple: #7c3aed;
   --color-rp-red: #ef4444;
+  --color-rp-red-soft: #fef1f1;
   --font-sans: 'Inter', -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* Layered shadow system — every elevated surface in the editor draws from this scale
+     so depth reads as one consistent material rather than ad-hoc per-component values. */
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-sm: 0 2px 6px rgba(15, 23, 42, 0.07);
+  --shadow-md: 0 8px 24px -4px rgba(15, 23, 42, 0.12);
+  --shadow-lg: 0 20px 48px -8px rgba(15, 23, 42, 0.18);
+  --shadow-xl: 0 28px 64px -12px rgba(15, 23, 42, 0.32);
+  --shadow-glow-blue: 0 8px 20px -4px rgba(37, 99, 235, 0.35);
+  --shadow-glow-red: 0 8px 18px -4px rgba(239, 68, 68, 0.32);
 }
 
 html,
@@ -69,4 +83,32 @@ body {
 }
 ::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* Every interactive control eases its hover/active/selected state the same way,
+   so the editor's chrome feels like one calibrated material instead of flipping
+   instantly between states. */
+button,
+a,
+input,
+select,
+textarea,
+[role='button'] {
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease,
+    opacity 0.15s ease,
+    transform 0.1s ease;
+}
+
+button:active {
+  transform: translateY(0.5px);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-rp-blue);
+  outline-offset: 2px;
+  border-radius: 6px;
 }

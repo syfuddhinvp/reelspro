@@ -1,9 +1,20 @@
+import type { ReactElement } from 'react';
+import { ImageIcon, MusicIcon, StarIcon, TextIcon, VideoIcon } from './components/icons.tsx';
+
 export type AssetType = 'text' | 'image' | 'logo' | 'video' | 'audio';
 
 /** A simple audio source used for scene / background tracks. */
 export interface AudioClip {
   src: string;
   name: string;
+  /** seconds into the source clip to start playback; defaults to 0 */
+  trimStart?: number;
+  /** seconds; 0/undefined means "play through to the end of the source clip" */
+  trimEnd?: number;
+  /** defaults to 1 */
+  volume?: number;
+  /** defaults to false */
+  muted?: boolean;
 }
 
 export interface TextProps {
@@ -58,6 +69,8 @@ export interface AudioProps {
   src: string;
   name: string;
   trimStart: number;
+  /** seconds; 0 means "play through to the end of the source clip" */
+  trimEnd: number;
   volume: number;
   muted: boolean;
 }
@@ -228,12 +241,12 @@ export const DEFAULT_FONT = FONTS[0].stack;
 /** Pixels per second on the timeline. */
 export const PX_PER_SEC = 56;
 
-export const ASSET_ICON: Record<AssetType, string> = {
-  text: 'T',
-  image: '🖼',
-  logo: '★',
-  video: '▶',
-  audio: '♪',
+export const ASSET_ICON: Record<AssetType, (props: { size?: number; className?: string }) => ReactElement> = {
+  text: TextIcon,
+  image: ImageIcon,
+  logo: StarIcon,
+  video: VideoIcon,
+  audio: MusicIcon,
 };
 
 /** Accent colour per asset type — used by the sidebar asset list. */

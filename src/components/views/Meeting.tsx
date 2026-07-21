@@ -39,7 +39,7 @@ export default function Meeting() {
     } catch {
       /* ignore */
     }
-    toast('🔗 Invite link copied');
+    toast('Invite link copied', 'success');
   };
 
   return (
@@ -84,7 +84,7 @@ export default function Meeting() {
           <Tile
             bg="linear-gradient(135deg,#312e81,#7c3aed)"
             className="flex-1 cursor-pointer"
-            onClick={() => toast('📺 Sharing your Just Listed video…')}
+            onClick={() => toast('Sharing your Just Listed video…', 'info')}
           >
             <div className="text-center text-white">
               <div className="text-[26px]">📺</div>
@@ -101,7 +101,7 @@ export default function Meeting() {
         <Ctrl off={camOff} onClick={toggleCam} title="Camera">
           <VideoIcon size={20} />
         </Ctrl>
-        <Ctrl onClick={() => toast('🖥️ Screen share started')} title="Share screen">
+        <Ctrl onClick={() => toast('Screen share started', 'info')} title="Share screen">
           <ScreenIcon />
         </Ctrl>
         <Ctrl onClick={() => setInvite((v) => !v)} title="Invite">
@@ -116,7 +116,7 @@ export default function Meeting() {
         <button
           onClick={() => {
             go('dashboard');
-            toast('📞 Call ended');
+            toast('Call ended', 'info');
           }}
           title="Leave"
           className="grid h-[52px] w-16 place-items-center rounded-[30px] bg-rp-red text-white transition-colors hover:bg-[#dc2626]"

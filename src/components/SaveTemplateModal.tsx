@@ -29,7 +29,7 @@ export default function SaveTemplateModal({ editing, onClose }: Props) {
   const [small, setSmall] = useState(editing?.small ?? '');
 
   const save = () => {
-    if (!name.trim()) return toast('⚠ Give the template a name');
+    if (!name.trim()) return toast('Give the template a name', 'warning');
     const tpl: VideoTemplate = {
       id: editing?.id ?? newId(),
       name: name.trim(),
@@ -46,7 +46,7 @@ export default function SaveTemplateModal({ editing, onClose }: Props) {
       bgAudio: bgAudio ?? undefined,
     };
     saveTemplate(tpl);
-    toast(editing ? `✓ Updated "${tpl.name}"` : `✓ Saved template "${tpl.name}"`);
+    toast(editing ? `Updated "${tpl.name}"` : `Saved template "${tpl.name}"`, 'success');
     onClose();
   };
 

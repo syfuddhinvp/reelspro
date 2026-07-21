@@ -22,7 +22,7 @@ export default function Templates() {
   const use = (t: VideoTemplate) => {
     loadTemplate(t);
     go('editor');
-    toast(`✨ "${t.name}" loaded into the editor`);
+    toast(`"${t.name}" loaded into the editor`, 'success');
   };
 
   const edit = (t: VideoTemplate) => {

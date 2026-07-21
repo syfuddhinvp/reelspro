@@ -23,13 +23,16 @@ export default function AudioLayer() {
   // background track: start when playback begins, stop when it ends
   useEffect(() => {
     const el = bgRef.current;
-    if (!el) return;
+    if (!el || !bgAudio) return;
+    const start = bgAudio.trimStart ?? 0;
+    el.volume = bgAudio.volume ?? 1;
+    el.muted = bgAudio.muted ?? false;
     if (playing) {
-      el.currentTime = 0;
+      el.currentTime = start;
       void el.play().catch(() => {});
     } else {
       el.pause();
-      el.currentTime = 0;
+      el.currentTime = start;
     }
   }, [playing, bgAudio]);
 
@@ -71,7 +74,25 @@ export default function AudioLayer() {
 
   return (
     <>
-      {bgAudio && <audio ref={bgRef} src={bgAudio.src} loop />}
+      {bgAudio && (
+        <audio
+          ref={bgRef}
+          src={bgAudio.src}
+          onTimeUpdate={(e) => {
+            // loop the selected [trimStart, trimEnd] window across the whole video
+            const el = e.currentTarget;
+            const start = bgAudio.trimStart ?? 0;
+            const end = bgAudio.trimEnd || el.duration || 0;
+            if (end > start && el.currentTime >= end) el.currentTime = start;
+          }}
+          onEnded={(e) => {
+            // fallback for when the source ends before trimEnd is reached (e.g. no trimEnd set)
+            const el = e.currentTarget;
+            el.currentTime = bgAudio.trimStart ?? 0;
+            void el.play().catch(() => {});
+          }}
+        />
+      )}
       {scene.audio && <audio key={scene.audio.src} ref={sceneRef} src={scene.audio.src} />}
       {audioAssets.map((a) => (
         <audio
@@ -80,6 +101,14 @@ export default function AudioLayer() {
           ref={(el) => {
             if (el) assetRefs.current.set(a.id, el);
             else assetRefs.current.delete(a.id);
+          }}
+          onTimeUpdate={(e) => {
+            // loop the selected [trimStart, trimEnd] window while it's on screen
+            const p = a.props as AudioProps;
+            const el = e.currentTarget;
+            if (p.trimEnd > p.trimStart && el.currentTime >= p.trimEnd) {
+              el.currentTime = p.trimStart;
+            }
           }}
         />
       ))}

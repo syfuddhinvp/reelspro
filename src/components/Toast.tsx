@@ -1,8 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../appStore.ts';
+import { CheckCircleIcon, WarningIcon } from './icons.tsx';
+
+const KIND_STYLE = {
+  success: { bg: 'bg-rp-ink', icon: <CheckCircleIcon size={16} className="text-rp-green" /> },
+  warning: { bg: 'bg-rp-ink', icon: <WarningIcon size={16} className="text-rp-gold" /> },
+  info: { bg: 'bg-rp-ink', icon: <CheckCircleIcon size={16} className="text-rp-sky" /> },
+} as const;
 
 export default function Toast() {
   const msg = useApp((s) => s.toastMsg);
+  const kind = useApp((s) => s.toastKind);
   const seq = useApp((s) => s.toastSeq);
   const [show, setShow] = useState(false);
 
@@ -13,12 +21,15 @@ export default function Toast() {
     return () => clearTimeout(t);
   }, [seq]);
 
+  const style = KIND_STYLE[kind];
+
   return (
     <div
-      className={`fixed bottom-6 left-1/2 z-[200] -translate-x-1/2 rounded-xl bg-rp-ink px-[22px] py-[13px] text-sm font-semibold text-white shadow-[0_20px_50px_rgba(15,23,42,0.16)] transition-all duration-300 ${
-        show ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0'
+      className={`fixed bottom-6 left-1/2 z-[200] flex -translate-x-1/2 items-center gap-[10px] rounded-xl ${style.bg} py-[13px] pl-[16px] pr-[20px] text-sm font-semibold text-white shadow-[var(--shadow-xl)] ring-1 ring-white/10 transition-all duration-300 ${
+        show ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0'
       }`}
     >
+      <span className="flex-none">{style.icon}</span>
       {msg}
     </div>
   );

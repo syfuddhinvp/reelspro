@@ -1,13 +1,27 @@
-import { useRef, useState } from 'react';
-import type { Asset, AssetType, TextProps } from '../types.ts';
+import { useEffect, useRef, useState } from 'react';
+import type { Asset, AssetType, AudioClip, TextProps } from '../types.ts';
 import { ASSET_COLOR, ASSET_ICON } from '../types.ts';
 import { ASSET_TYPES } from '../assetTypes.ts';
 import { useEditor } from '../store.ts';
 import { newId, useTemplates } from '../templateStore.ts';
 import { useApp } from '../appStore.ts';
 import RecorderModal from './RecorderModal.tsx';
+import TrimBar from './TrimBar.tsx';
+import { boxForFile, uploadSizeError, type UploadKind } from '../upload.ts';
+import {
+  GroupIcon,
+  ImageIcon,
+  LockIcon,
+  MusicIcon,
+  PlusIcon,
+  RecordDotIcon,
+  StarIcon,
+  TextIcon,
+  TrashIcon,
+  VideoIcon,
+} from './icons.tsx';
 
-type FileKind = 'image' | 'logo' | 'video' | 'audio' | 'global-logo' | 'bg-audio';
+type FileKind = UploadKind | 'audio' | 'bg-audio';
 
 function assetName(a: Asset): string {
   if (a.type === 'text') return ((a.props as TextProps).text || 'Text').slice(0, 18);
@@ -51,10 +65,10 @@ export default function LeftPanel() {
     input.click();
   };
 
-  const onRecorded = (mode: 'audio' | 'video', url: string, name: string) => {
-    if (mode === 'video') addAsset('video', { src: url });
+  const onRecorded = async (mode: 'audio' | 'video', url: string, name: string) => {
+    if (mode === 'video') addAsset('video', { src: url }, await boxForFile('video', url));
     else addAudioAsset(url, name);
-    toast(`✓ Added ${name.toLowerCase()}`);
+    toast(`Added ${name.toLowerCase()}`, 'success');
   };
 
   // group-building state
@@ -77,13 +91,13 @@ export default function LeftPanel() {
 
   const commitGroup = () => {
     const chosen = assets.filter((a) => picked.has(a.id));
-    if (!chosen.length) return toast('⚠ Pick at least one asset');
+    if (!chosen.length) return toast('Pick at least one asset', 'warning');
     saveGroup({
       id: newId(),
       name: groupName.trim() || `Group ${groups.length + 1}`,
       assets: chosen.map((a) => ({ ...a, props: { ...a.props } })),
     });
-    toast(`⊞ Saved group "${groupName.trim() || `Group ${groups.length + 1}`}"`);
+    toast(`Saved group "${groupName.trim() || `Group ${groups.length + 1}`}"`, 'success');
     resetGrouping();
   };
 
@@ -96,34 +110,54 @@ export default function LeftPanel() {
     pickFile(type as FileKind);
   };
 
-  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    const url = URL.createObjectURL(f);
     const kind = pendingKind.current;
+
+    if (kind !== 'audio' && kind !== 'bg-audio') {
+      const err = uploadSizeError(kind, f);
+      if (err) return toast(err, 'warning');
+    }
+
+    const url = URL.createObjectURL(f);
     if (kind === 'audio') addAudioAsset(url, f.name);
     else if (kind === 'bg-audio') {
       setBgAudio({ src: url, name: f.name });
-      toast('🎵 Background track set for all slides');
+      toast('Background track set for all slides', 'success');
     } else if (kind === 'global-logo') {
-      addGlobalAsset('logo', { src: url });
-      toast('★ Logo added to all slides');
-    } else addAsset(kind as AssetType, { src: url });
+      addGlobalAsset('logo', { src: url }, await boxForFile(kind, url));
+      toast('Logo added to all slides', 'success');
+    } else addAsset(kind as AssetType, { src: url }, await boxForFile(kind, url));
   };
 
   return (
     <div className="col left overflow-y-auto border-r border-rp-line bg-white p-4">
       <SectionTitle>Add to scene</SectionTitle>
       <div className="grid grid-cols-2 gap-2">
-        <AddBtn onClick={() => onAdd('text')}>＋ Text</AddBtn>
-        <AddBtn onClick={() => onAdd('image')}>＋ Image</AddBtn>
-        <AddBtn onClick={() => onAdd('logo')}>＋ Logo</AddBtn>
-        <AddBtn onClick={() => onAdd('video')}>＋ Video</AddBtn>
-        <AddBtn onClick={() => onAdd('audio')}>＋ Audio</AddBtn>
+        <AddBtn icon={<TextIcon size={14} />} onClick={() => onAdd('text')}>
+          Text
+        </AddBtn>
+        <AddBtn icon={<ImageIcon size={14} />} onClick={() => onAdd('image')}>
+          Image
+        </AddBtn>
+        <AddBtn icon={<StarIcon size={14} />} onClick={() => onAdd('logo')}>
+          Logo
+        </AddBtn>
+        <AddBtn icon={<VideoIcon size={14} />} onClick={() => onAdd('video')}>
+          Video
+        </AddBtn>
+        <AddBtn icon={<MusicIcon size={14} />} onClick={() => onAdd('audio')}>
+          Audio
+        </AddBtn>
       </div>
       <div className="mb-[18px] mt-2 grid grid-cols-2 gap-2">
-        <GhostMini onClick={() => setRecMode('audio')}>⏺ Rec audio</GhostMini>
-        <GhostMini onClick={() => setRecMode('video')}>⏺ Rec video</GhostMini>
+        <GhostMini icon={<RecordDotIcon size={9} className="text-rp-red" />} onClick={() => setRecMode('audio')}>
+          Rec audio
+        </GhostMini>
+        <GhostMini icon={<RecordDotIcon size={9} className="text-rp-red" />} onClick={() => setRecMode('video')}>
+          Rec video
+        </GhostMini>
       </div>
 
       <div className="mb-[10px] flex items-center justify-between">
@@ -134,28 +168,33 @@ export default function LeftPanel() {
               Cancel
             </button>
           ) : (
-            <button onClick={() => setGrouping(true)} className="text-[11px] font-semibold text-rp-blue">
-              ⊞ Group
+            <button
+              onClick={() => setGrouping(true)}
+              className="flex items-center gap-[4px] text-[11px] font-semibold text-rp-blue"
+            >
+              <GroupIcon size={12} />
+              Group
             </button>
           ))}
       </div>
 
       <div>
         {assets.length ? (
-          assets.map((a) =>
-            grouping ? (
+          assets.map((a) => {
+            const Icon = ASSET_ICON[a.type];
+            return grouping ? (
               <label
                 key={a.id}
-                className={`mb-[7px] flex cursor-pointer items-center gap-[10px] rounded-[10px] border p-[9px] ${
-                  picked.has(a.id) ? 'border-rp-blue bg-[#eff4ff]' : 'border-rp-line'
+                className={`mb-[7px] flex cursor-pointer items-center gap-[10px] rounded-[10px] border p-[9px] transition-shadow ${
+                  picked.has(a.id) ? 'border-rp-blue bg-rp-blue-soft shadow-[var(--shadow-xs)]' : 'border-rp-line hover:border-[#c7d2e0]'
                 }`}
               >
                 <input type="checkbox" checked={picked.has(a.id)} onChange={() => togglePick(a.id)} />
                 <div
-                  className="grid h-7 w-7 flex-none place-items-center rounded-[7px] text-xs font-bold text-white"
+                  className="grid h-7 w-7 flex-none place-items-center rounded-[7px] text-white shadow-[var(--shadow-xs)]"
                   style={{ background: ASSET_COLOR[a.type] }}
                 >
-                  {ASSET_ICON[a.type]}
+                  <Icon size={14} />
                 </div>
                 <b className="truncate text-[13px]">{assetName(a)}</b>
               </label>
@@ -164,17 +203,22 @@ export default function LeftPanel() {
                 key={a.id}
                 selected={a.id === selAssetId}
                 dotColor={ASSET_COLOR[a.type]}
-                dotLabel={ASSET_ICON[a.type]}
+                icon={<Icon size={14} />}
                 title={assetName(a)}
-                sub={`${ASSET_TYPES[a.type].label} · ${a.dur}s${a.editable ? '' : ' · 🔒'}`}
+                sub={
+                  <>
+                    {ASSET_TYPES[a.type].label} · {a.dur}s
+                    {!a.editable && <LockIcon size={9} className="ml-1 inline-block align-middle text-rp-mute" />}
+                  </>
+                }
                 onClick={() => selectAsset(a.id)}
                 onDelete={() => {
                   selectAsset(a.id);
                   delAsset();
                 }}
               />
-            ),
-          )
+            );
+          })
         ) : (
           <p className="text-xs text-rp-mute">No assets yet — use the buttons above.</p>
         )}
@@ -186,11 +230,11 @@ export default function LeftPanel() {
             value={groupName}
             onChange={(e) => setGroupName(e.target.value)}
             placeholder="Group name"
-            className="min-w-0 flex-1 rounded-[9px] border border-rp-line bg-rp-bg px-[10px] py-2 text-[13px]"
+            className="min-w-0 flex-1 rounded-[9px] border border-rp-line bg-rp-bg px-[10px] py-2 text-[13px] focus:border-rp-blue focus:bg-white focus:outline-none"
           />
           <button
             onClick={commitGroup}
-            className="rounded-[9px] bg-rp-blue px-3 text-[13px] font-semibold text-white"
+            className="rounded-[9px] bg-rp-blue px-3 text-[13px] font-semibold text-white hover:bg-rp-blue-dk"
           >
             Save ({picked.size})
           </button>
@@ -200,8 +244,13 @@ export default function LeftPanel() {
       <SectionTitle className="mt-[18px]">Groups · {groups.length}</SectionTitle>
       {groups.length ? (
         groups.map((g) => (
-          <div key={g.id} className="mb-[7px] flex items-center gap-[10px] rounded-[10px] border border-rp-line p-[9px]">
-            <div className="grid h-7 w-7 flex-none place-items-center rounded-[7px] bg-rp-purple text-xs font-bold text-white">⊞</div>
+          <div
+            key={g.id}
+            className="mb-[7px] flex items-center gap-[10px] rounded-[10px] border border-rp-line p-[9px] hover:border-[#c7d2e0]"
+          >
+            <div className="grid h-7 w-7 flex-none place-items-center rounded-[7px] bg-rp-purple text-white shadow-[var(--shadow-xs)]">
+              <GroupIcon size={14} />
+            </div>
             <div className="min-w-0">
               <b className="block truncate text-[13px]">{g.name}</b>
               <span className="text-[11px] text-rp-mute">{g.assets.length} asset(s)</span>
@@ -209,54 +258,60 @@ export default function LeftPanel() {
             <button
               onClick={() => {
                 insertGroup(g);
-                toast(`⊞ Inserted "${g.name}"`);
+                toast(`Inserted "${g.name}"`, 'success');
               }}
               title="Insert into scene"
-              className="ml-auto cursor-pointer text-[15px] text-rp-blue"
+              className="ml-auto grid h-6 w-6 flex-none cursor-pointer place-items-center rounded-md text-rp-blue hover:bg-rp-blue-soft"
             >
-              ＋
+              <PlusIcon size={13} />
             </button>
-            <button onClick={() => deleteGroup(g.id)} title="Delete group" className="cursor-pointer text-[13px] text-[#ef4444]">
-              ✕
+            <button
+              onClick={() => deleteGroup(g.id)}
+              title="Delete group"
+              className="grid h-6 w-6 flex-none cursor-pointer place-items-center rounded-md text-rp-mute hover:bg-rp-red-soft hover:text-rp-red"
+            >
+              <TrashIcon size={13} />
             </button>
           </div>
         ))
       ) : (
-        <p className="text-xs text-rp-mute">Use ⊞ Group above to bundle assets for reuse.</p>
+        <p className="text-xs text-rp-mute">Select assets, then tap Group above to bundle them for reuse.</p>
       )}
 
       <SectionTitle className="mt-[18px]">All slides</SectionTitle>
       <div className="mb-2 grid grid-cols-2 gap-2">
-        <GhostMini onClick={() => pickFile('global-logo')}>★ Logo on all</GhostMini>
-        <GhostMini onClick={() => pickFile('bg-audio')}>🎵 BG music</GhostMini>
+        <GhostMini icon={<StarIcon size={13} />} onClick={() => pickFile('global-logo')}>
+          Logo on all
+        </GhostMini>
+        <GhostMini icon={<MusicIcon size={13} />} onClick={() => pickFile('bg-audio')}>
+          BG music
+        </GhostMini>
       </div>
       {bgAudio && (
-        <div className="mb-2 flex items-center gap-2 rounded-[10px] border border-rp-line p-[9px]">
-          <div className="grid h-7 w-7 flex-none place-items-center rounded-[7px] bg-rp-purple text-xs font-bold text-white">♪</div>
-          <div className="min-w-0">
-            <b className="block truncate text-[13px]">{bgAudio.name}</b>
-            <span className="text-[11px] text-rp-mute">Background · all slides</span>
-          </div>
-          <button onClick={() => setBgAudio(null)} className="ml-auto cursor-pointer text-[13px] text-[#ef4444]">
-            ✕
-          </button>
-        </div>
-      )}
-      {globalAssets.map((a) => (
-        <Row
-          key={a.id}
-          selected={a.id === selAssetId}
-          dotColor={ASSET_COLOR[a.type]}
-          dotLabel={ASSET_ICON[a.type]}
-          title={assetName(a)}
-          sub={`${ASSET_TYPES[a.type].label} · on all slides`}
-          onClick={() => selectAsset(a.id)}
-          onDelete={() => {
-            selectAsset(a.id);
-            delAsset();
-          }}
+        <BgAudioControls
+          clip={bgAudio}
+          onChange={(patch) => setBgAudio({ ...bgAudio, ...patch })}
+          onRemove={() => setBgAudio(null)}
         />
-      ))}
+      )}
+      {globalAssets.map((a) => {
+        const Icon = ASSET_ICON[a.type];
+        return (
+          <Row
+            key={a.id}
+            selected={a.id === selAssetId}
+            dotColor={ASSET_COLOR[a.type]}
+            icon={<Icon size={14} />}
+            title={assetName(a)}
+            sub={`${ASSET_TYPES[a.type].label} · on all slides`}
+            onClick={() => selectAsset(a.id)}
+            onDelete={() => {
+              selectAsset(a.id);
+              delAsset();
+            }}
+          />
+        );
+      })}
       {!bgAudio && globalAssets.length === 0 && (
         <p className="mb-1 text-xs text-rp-mute">Add a logo or music that appears on every scene.</p>
       )}
@@ -268,7 +323,7 @@ export default function LeftPanel() {
             key={s.id}
             selected={i === selScene}
             dotColor={s.color}
-            dotLabel={String(i + 1)}
+            icon={<span className="text-[11px] font-bold">{i + 1}</span>}
             title={s.name}
             sub={`${s.assets.length} asset(s) · ${s.dur}s`}
             onClick={() => selectScene(i)}
@@ -276,12 +331,13 @@ export default function LeftPanel() {
           />
         ))}
       </div>
-      <div
-        className="cursor-pointer rounded-[10px] border-[1.5px] border-dashed border-[#c7d2e0] p-[10px] text-center text-[13px] font-semibold text-rp-mute"
+      <button
+        className="flex w-full cursor-pointer items-center justify-center gap-[6px] rounded-[10px] border-[1.5px] border-dashed border-[#c7d2e0] p-[10px] text-[13px] font-semibold text-rp-mute hover:border-rp-blue hover:text-rp-blue"
         onClick={addScene}
       >
-        ＋ Add scene
-      </div>
+        <PlusIcon size={13} />
+        Add scene
+      </button>
 
       <input ref={fileRef} type="file" hidden onChange={onFile} />
 
@@ -296,12 +352,95 @@ export default function LeftPanel() {
   );
 }
 
-function GhostMini({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+/** Trim range, volume & mute controls for the background music track (plays across every scene). */
+function BgAudioControls({
+  clip,
+  onChange,
+  onRemove,
+}: {
+  clip: AudioClip;
+  onChange: (patch: Partial<AudioClip>) => void;
+  onRemove: () => void;
+}) {
+  const [duration, setDuration] = useState(0);
+  const trimStart = clip.trimStart ?? 0;
+  const trimEnd = clip.trimEnd ?? 0;
+  const volume = clip.volume ?? 1;
+  const muted = clip.muted ?? false;
+
+  // once the source clip's real length is known, default trimEnd to "full clip"
+  useEffect(() => {
+    if (duration > 0 && !trimEnd) onChange({ trimEnd: +duration.toFixed(2) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [duration]);
+
+  return (
+    <div className="mb-2 rounded-[10px] border border-rp-line p-[9px]">
+      <div className="mb-2 flex items-center gap-2">
+        <div className="grid h-7 w-7 flex-none place-items-center rounded-[7px] bg-rp-purple text-white shadow-[var(--shadow-xs)]">
+          <MusicIcon size={14} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <b className="block truncate text-[13px]">{clip.name}</b>
+          <span className="text-[11px] text-rp-mute">Background · all slides</span>
+        </div>
+        <button
+          onClick={onRemove}
+          className="grid h-6 w-6 flex-none cursor-pointer place-items-center rounded-md text-rp-mute hover:bg-rp-red-soft hover:text-rp-red"
+        >
+          <TrashIcon size={13} />
+        </button>
+      </div>
+
+      <audio src={clip.src} preload="metadata" hidden onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)} />
+
+      <div className="mb-[5px] text-xs font-bold text-[#475569]">
+        Clip range · {duration ? duration.toFixed(1) : '…'}s total
+      </div>
+      <TrimBar
+        duration={duration}
+        start={trimStart}
+        end={trimEnd || duration}
+        onChange={(start, end) => onChange({ trimStart: start, trimEnd: end })}
+      />
+      <div className="mt-1 mb-2 flex justify-between text-[11px] text-rp-mute">
+        <span>Start {trimStart.toFixed(1)}s</span>
+        <span>End {(trimEnd || duration).toFixed(1)}s</span>
+      </div>
+
+      <div className="mb-[5px] text-xs font-bold text-[#475569]">Volume ({Math.round(volume * 100)}%)</div>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        value={Math.round(volume * 100)}
+        onChange={(e) => onChange({ volume: Number(e.target.value) / 100 })}
+        className="mb-2 w-full"
+      />
+
+      <label className="flex items-center gap-2 text-[13px]">
+        <input type="checkbox" checked={muted} onChange={(e) => onChange({ muted: e.target.checked })} />
+        Mute
+      </label>
+    </div>
+  );
+}
+
+function GhostMini({
+  children,
+  icon,
+  onClick,
+}: {
+  children: React.ReactNode;
+  icon: React.ReactNode;
+  onClick: () => void;
+}) {
   return (
     <button
       onClick={onClick}
-      className="rounded-[9px] border border-rp-line bg-white px-[10px] py-[6px] text-xs font-semibold text-rp-ink hover:border-rp-blue hover:text-rp-blue"
+      className="flex cursor-pointer items-center justify-center gap-[6px] rounded-[9px] border border-rp-line bg-white px-[10px] py-[6px] text-xs font-semibold text-rp-ink hover:border-rp-blue hover:text-rp-blue"
     >
+      {icon}
       {children}
     </button>
   );
@@ -323,12 +462,21 @@ function SectionTitle({
   );
 }
 
-function AddBtn({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+function AddBtn({
+  children,
+  icon,
+  onClick,
+}: {
+  children: React.ReactNode;
+  icon: React.ReactNode;
+  onClick: () => void;
+}) {
   return (
     <button
       onClick={onClick}
-      className="flex cursor-pointer items-center justify-center gap-[5px] rounded-[9px] bg-rp-blue px-[10px] py-[6px] text-xs font-semibold text-white"
+      className="flex cursor-pointer items-center justify-center gap-[6px] rounded-[9px] bg-[linear-gradient(135deg,#2563eb,#3b82f6)] px-[10px] py-[7px] text-xs font-semibold text-white shadow-[var(--shadow-xs)] hover:bg-[linear-gradient(135deg,#1e40af,#2563eb)]"
     >
+      {icon}
       {children}
     </button>
   );
@@ -337,39 +485,39 @@ function AddBtn({ children, onClick }: { children: React.ReactNode; onClick: () 
 interface RowProps {
   selected: boolean;
   dotColor: string;
-  dotLabel: string;
+  icon: React.ReactNode;
   title: string;
-  sub: string;
+  sub: React.ReactNode;
   onClick: () => void;
   onDelete: () => void;
 }
 
-function Row({ selected, dotColor, dotLabel, title, sub, onClick, onDelete }: RowProps) {
+function Row({ selected, dotColor, icon, title, sub, onClick, onDelete }: RowProps) {
   return (
     <div
       onClick={onClick}
-      className={`mb-[7px] flex cursor-pointer items-center gap-[10px] rounded-[10px] border p-[9px] ${
-        selected ? 'border-rp-blue bg-[#eff4ff]' : 'border-rp-line'
+      className={`group mb-[7px] flex cursor-pointer items-center gap-[10px] rounded-[10px] border p-[9px] transition-shadow ${
+        selected ? 'border-rp-blue bg-rp-blue-soft shadow-[var(--shadow-xs)]' : 'border-rp-line hover:border-[#c7d2e0]'
       }`}
     >
       <div
-        className="grid h-7 w-7 flex-none place-items-center rounded-[7px] text-xs font-bold text-white"
+        className="grid h-7 w-7 flex-none place-items-center rounded-[7px] text-white shadow-[var(--shadow-xs)]"
         style={{ background: dotColor }}
       >
-        {dotLabel}
+        {icon}
       </div>
       <div className="min-w-0">
         <b className="block truncate text-[13px]">{title}</b>
         <span className="text-[11px] text-rp-mute">{sub}</span>
       </div>
       <button
-        className="ml-auto cursor-pointer border-none bg-transparent text-[13px] text-[#ef4444]"
+        className="ml-auto grid h-6 w-6 flex-none cursor-pointer place-items-center rounded-md text-rp-mute opacity-0 group-hover:opacity-100 hover:bg-rp-red-soft hover:text-rp-red"
         onClick={(e) => {
           e.stopPropagation();
           onDelete();
         }}
       >
-        ✕
+        <TrashIcon size={13} />
       </button>
     </div>
   );

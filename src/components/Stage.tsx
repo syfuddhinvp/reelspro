@@ -18,7 +18,7 @@ export default function Stage() {
   return (
     <div className="stage flex flex-col items-center justify-center gap-[14px] overflow-auto bg-rp-bg p-5">
       <div
-        className="relative overflow-hidden rounded-[14px] shadow-[0_20px_50px_rgba(15,23,42,0.22)] transition-[width] duration-200 select-none [touch-action:none]"
+        className="relative overflow-hidden rounded-[14px] shadow-[var(--shadow-xl)] ring-1 ring-black/[0.04] transition-[width] duration-200 select-none [touch-action:none]"
         style={{
           width,
           aspectRatio: ratio.replace('/', ' / '),
@@ -39,13 +39,15 @@ export default function Stage() {
           ))}
       </div>
 
-      <div className="flex gap-[6px] rounded-[10px] border border-rp-line bg-white p-1">
+      <div className="flex gap-[6px] rounded-[10px] border border-rp-line bg-white p-1 shadow-[var(--shadow-xs)]">
         {RATIOS.map((r) => (
           <button
             key={r.ratio}
             onClick={() => setRatio(r.ratio)}
             className={`cursor-pointer rounded-[7px] px-3 py-[6px] text-xs font-semibold ${
-              r.ratio === ratio ? 'bg-rp-blue text-white' : 'bg-transparent text-rp-mute'
+              r.ratio === ratio
+                ? 'bg-rp-blue text-white shadow-[var(--shadow-glow-blue)]'
+                : 'bg-transparent text-rp-mute hover:text-rp-blue'
             }`}
           >
             {r.label}

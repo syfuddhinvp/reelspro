@@ -48,9 +48,10 @@ interface EditorState {
 
   // assets
   selectAsset: (id: number | null) => void;
-  addAsset: (type: AssetType, props?: Partial<Asset['props']>) => void;
+  /** `size` overrides the asset type's default box (e.g. to match an uploaded file's own aspect ratio) */
+  addAsset: (type: AssetType, props?: Partial<Asset['props']>, size?: { w: number; h: number }) => void;
   addAudioAsset: (src: string, name: string) => void;
-  addGlobalAsset: (type: AssetType, props?: Partial<Asset['props']>) => void;
+  addGlobalAsset: (type: AssetType, props?: Partial<Asset['props']>, size?: { w: number; h: number }) => void;
   toggleGlobal: (id: number) => void;
   delAsset: () => void;
   duplicateAsset: () => void;
@@ -157,9 +158,12 @@ export const useEditor = create<EditorState>((set, get) => {
 
     selectAsset: (id) => set({ selAssetId: id }),
 
-    addAsset: (type, props) => {
+    addAsset: (type, props, size) => {
       const scene = get().scenes[get().selScene];
-      const created = createAsset(type, props ? { props: props as Asset['props'] } : {});
+      const opts: Partial<Asset> = {};
+      if (props) opts.props = props as Asset['props'];
+      if (size) Object.assign(opts, size);
+      const created = createAsset(type, opts);
       const asset = normalizeTiming(created, scene.dur);
       patchCurrentScene((sc) => ({ ...sc, assets: [...sc.assets, asset] }));
       set({ selAssetId: asset.id });
@@ -173,8 +177,11 @@ export const useEditor = create<EditorState>((set, get) => {
       set({ selAssetId: asset.id });
     },
 
-    addGlobalAsset: (type, props) => {
-      const created = createAsset(type, props ? { props: props as Asset['props'] } : {});
+    addGlobalAsset: (type, props, size) => {
+      const opts: Partial<Asset> = {};
+      if (props) opts.props = props as Asset['props'];
+      if (size) Object.assign(opts, size);
+      const created = createAsset(type, opts);
       set((s) => ({ globalAssets: [...s.globalAssets, created], selAssetId: created.id }));
     },
 

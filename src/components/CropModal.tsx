@@ -2,6 +2,10 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { Asset, CropSettings, MediaProps, VideoProps } from '../types.ts';
 import { DEFAULT_CROP } from '../types.ts';
 import { useEditor } from '../store.ts';
+import { fitBox } from '../util.ts';
+import TrimBar from './TrimBar.tsx';
+import Modal from './Modal.tsx';
+import { ScissorsIcon } from './icons.tsx';
 
 interface Props {
   asset: Asset;
@@ -37,6 +41,7 @@ function resizeFrom(orig: CropSettings, handle: Handle, dx: number, dy: number):
 /** Crop-frame editor (draggable/resizable rectangle + exact W/H) for images & videos, plus in/out trim for video. */
 export default function CropModal({ asset, onClose }: Props) {
   const updateAssetProps = useEditor((s) => s.updateAssetProps);
+  const updateAsset = useEditor((s) => s.updateAsset);
   const isVideo = asset.type === 'video';
   const p = asset.props as MediaProps | VideoProps;
   const crop = p.crop ?? DEFAULT_CROP;
@@ -47,6 +52,19 @@ export default function CropModal({ asset, onClose }: Props) {
 
   const setCrop = (patch: Partial<CropSettings>) =>
     updateAssetProps(asset.id, { crop: { ...crop, ...patch } });
+
+  // on close, resize the asset's box to the crop rectangle's own aspect ratio
+  // (contained within its previous footprint) instead of leaving the old box
+  // shape to letterbox/over-crop the selection via object-fit: cover
+  const finish = () => {
+    if (natural) {
+      const subW = crop.w * natural.w;
+      const subH = crop.h * natural.h;
+      const { w, h } = fitBox(subW, subH, asset.w, asset.h);
+      updateAsset(asset.id, { w, h });
+    }
+    onClose();
+  };
 
   // once the source video's real length is known, default trimEnd to "full clip"
   useEffect(() => {
@@ -133,155 +151,146 @@ export default function CropModal({ asset, onClose }: Props) {
   const pct = (v: number) => Math.round(v * 100);
 
   return (
-    <div className="fixed inset-0 z-[300] grid place-items-center bg-black/40 p-4" onClick={onClose}>
+    <Modal
+      title={isVideo ? 'Crop & trim video' : 'Crop image'}
+      icon={<ScissorsIcon size={14} />}
+      onClose={finish}
+      maxWidth={440}
+    >
       <div
-        className="w-full max-w-[440px] overflow-hidden rounded-2xl bg-white shadow-[0_24px_60px_rgba(15,23,42,0.3)]"
-        onClick={(e) => e.stopPropagation()}
+        className="relative mx-auto mb-4 select-none overflow-hidden rounded-xl bg-[#0b1220]"
+        style={{ width: boxW, height: boxH }}
       >
-        <div className="flex items-center justify-between border-b border-rp-line px-5 py-4">
-          <h3 className="text-base font-bold">{isVideo ? 'Crop & trim video' : 'Crop image'}</h3>
-          <button onClick={onClose} className="text-rp-mute hover:text-rp-ink">
-            ✕
-          </button>
-        </div>
+        {isVideo ? (
+          <video
+            ref={videoRef}
+            src={(p as VideoProps).src}
+            muted
+            playsInline
+            preload="metadata"
+            className="pointer-events-none absolute block"
+            style={{ left: offX, top: offY, width: dispW, height: dispH }}
+            onLoadedMetadata={(e) => {
+              const v = e.currentTarget;
+              setDuration(v.duration);
+              setNatural({ w: v.videoWidth, h: v.videoHeight });
+              v.currentTime = (asset.props as VideoProps).trimStart;
+            }}
+          />
+        ) : (
+          <img
+            src={p.src}
+            alt=""
+            className="pointer-events-none absolute block"
+            style={{ left: offX, top: offY, width: dispW, height: dispH }}
+            onLoad={(e) => {
+              const img = e.currentTarget;
+              setNatural({ w: img.naturalWidth, h: img.naturalHeight });
+            }}
+          />
+        )}
 
-        <div className="p-5">
-          <div
-            className="relative mx-auto mb-4 select-none overflow-hidden rounded-xl bg-[#0b1220]"
-            style={{ width: boxW, height: boxH }}
-          >
-            {isVideo ? (
-              <video
-                ref={videoRef}
-                src={(p as VideoProps).src}
-                muted
-                playsInline
-                preload="metadata"
-                className="pointer-events-none absolute block"
-                style={{ left: offX, top: offY, width: dispW, height: dispH }}
-                onLoadedMetadata={(e) => {
-                  const v = e.currentTarget;
-                  setDuration(v.duration);
-                  setNatural({ w: v.videoWidth, h: v.videoHeight });
-                  v.currentTime = (asset.props as VideoProps).trimStart;
-                }}
-              />
-            ) : (
-              <img
-                src={p.src}
-                alt=""
-                className="pointer-events-none absolute block"
-                style={{ left: offX, top: offY, width: dispW, height: dispH }}
-                onLoad={(e) => {
-                  const img = e.currentTarget;
-                  setNatural({ w: img.naturalWidth, h: img.naturalHeight });
-                }}
-              />
-            )}
-
-            {/* crop frame: draggable body + 8 resize handles, darkened outside via box-shadow */}
+        {/* crop frame: draggable body + 8 resize handles, darkened outside via box-shadow */}
+        <div
+          onPointerDown={onMoveStart}
+          className="absolute cursor-move border-2 border-white"
+          style={{ ...rectStyle, boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)' }}
+        >
+          {(['nw', 'n', 'ne', 'w', 'e', 'sw', 's', 'se'] as Handle[]).map((h) => (
             <div
-              onPointerDown={onMoveStart}
-              className="absolute cursor-move border-2 border-white"
-              style={{ ...rectStyle, boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)' }}
-            >
-              {(['nw', 'n', 'ne', 'w', 'e', 'sw', 's', 'se'] as Handle[]).map((h) => (
-                <div
-                  key={h}
-                  onPointerDown={(e) => {
-                    e.stopPropagation();
-                    onResizeStart(h)(e);
-                  }}
-                  className={`absolute h-3 w-3 rounded-[3px] border-2 border-rp-blue bg-white ${handlePos(h)} ${handleCursor(h)}`}
-                />
-              ))}
-            </div>
-          </div>
-
-          <p className="mb-3 text-[11px] text-rp-mute">
-            Drag the frame to move it, or its edges/corners to resize the crop.
-          </p>
-
-          <div className="mb-3 grid grid-cols-2 gap-2">
-            <Field label="Width %">
-              <input
-                type="number"
-                min={5}
-                max={100}
-                value={pct(crop.w)}
-                onChange={(e) => setPct({ w: Number(e.target.value) / 100 })}
-                className={inputCls}
-              />
-            </Field>
-            <Field label="Height %">
-              <input
-                type="number"
-                min={5}
-                max={100}
-                value={pct(crop.h)}
-                onChange={(e) => setPct({ h: Number(e.target.value) / 100 })}
-                className={inputCls}
-              />
-            </Field>
-            <Field label="X %">
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={pct(crop.x)}
-                onChange={(e) => setPct({ x: Number(e.target.value) / 100 })}
-                className={inputCls}
-              />
-            </Field>
-            <Field label="Y %">
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={pct(crop.y)}
-                onChange={(e) => setPct({ y: Number(e.target.value) / 100 })}
-                className={inputCls}
-              />
-            </Field>
-          </div>
-
-          {isVideo && (
-            <>
-              <Field label={`Clip range · ${duration ? duration.toFixed(1) : '…'}s total`}>
-                <TrimBar
-                  duration={duration}
-                  start={(p as VideoProps).trimStart}
-                  end={(p as VideoProps).trimEnd || duration}
-                  onChange={(start, end) => {
-                    updateAssetProps(asset.id, { trimStart: start, trimEnd: end });
-                    if (videoRef.current) videoRef.current.currentTime = start;
-                  }}
-                />
-              </Field>
-              <div className="mb-3 flex justify-between text-[12px] text-rp-mute">
-                <span>Start {(p as VideoProps).trimStart.toFixed(1)}s</span>
-                <span>End {((p as VideoProps).trimEnd || duration).toFixed(1)}s</span>
-              </div>
-            </>
-          )}
-
-          <div className="flex justify-end gap-2">
-            <button
-              onClick={() => setCrop(DEFAULT_CROP)}
-              className="rounded-[11px] border border-rp-line bg-white px-4 py-2 text-sm font-semibold hover:border-rp-blue hover:text-rp-blue"
-            >
-              Reset crop
-            </button>
-            <button
-              onClick={onClose}
-              className="rounded-[11px] bg-rp-blue px-4 py-2 text-sm font-semibold text-white hover:bg-rp-blue-dk"
-            >
-              Done
-            </button>
-          </div>
+              key={h}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                onResizeStart(h)(e);
+              }}
+              className={`absolute h-3 w-3 rounded-[3px] border-2 border-rp-blue bg-white ${handlePos(h)} ${handleCursor(h)}`}
+            />
+          ))}
         </div>
       </div>
-    </div>
+
+      <p className="mb-3 text-[11px] text-rp-mute">
+        Drag the frame to move it, or its edges/corners to resize the crop.
+      </p>
+
+      <div className="mb-3 grid grid-cols-2 gap-2">
+        <Field label="Width %">
+          <input
+            type="number"
+            min={5}
+            max={100}
+            value={pct(crop.w)}
+            onChange={(e) => setPct({ w: Number(e.target.value) / 100 })}
+            className={inputCls}
+          />
+        </Field>
+        <Field label="Height %">
+          <input
+            type="number"
+            min={5}
+            max={100}
+            value={pct(crop.h)}
+            onChange={(e) => setPct({ h: Number(e.target.value) / 100 })}
+            className={inputCls}
+          />
+        </Field>
+        <Field label="X %">
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={pct(crop.x)}
+            onChange={(e) => setPct({ x: Number(e.target.value) / 100 })}
+            className={inputCls}
+          />
+        </Field>
+        <Field label="Y %">
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={pct(crop.y)}
+            onChange={(e) => setPct({ y: Number(e.target.value) / 100 })}
+            className={inputCls}
+          />
+        </Field>
+      </div>
+
+      {isVideo && (
+        <>
+          <Field label={`Clip range · ${duration ? duration.toFixed(1) : '…'}s total`}>
+            <TrimBar
+              duration={duration}
+              start={(p as VideoProps).trimStart}
+              end={(p as VideoProps).trimEnd || duration}
+              onChange={(start, end) => {
+                updateAssetProps(asset.id, { trimStart: start, trimEnd: end });
+                if (videoRef.current) videoRef.current.currentTime = start;
+              }}
+            />
+          </Field>
+          <div className="mb-3 flex justify-between text-[12px] text-rp-mute">
+            <span>Start {(p as VideoProps).trimStart.toFixed(1)}s</span>
+            <span>End {((p as VideoProps).trimEnd || duration).toFixed(1)}s</span>
+          </div>
+        </>
+      )}
+
+      <div className="flex justify-end gap-2">
+        <button
+          onClick={() => setCrop(DEFAULT_CROP)}
+          className="rounded-[11px] border border-rp-line bg-white px-4 py-2 text-sm font-semibold hover:border-rp-blue hover:text-rp-blue"
+        >
+          Reset crop
+        </button>
+        <button
+          onClick={finish}
+          className="rounded-[11px] bg-rp-blue px-4 py-2 text-sm font-semibold text-white hover:bg-rp-blue-dk"
+        >
+          Done
+        </button>
+      </div>
+    </Modal>
   );
 }
 
@@ -312,64 +321,6 @@ function handleCursor(h: Handle): string {
     w: 'cursor-ew-resize',
   };
   return map[h];
-}
-
-/** Dual-handle range bar for picking a [start, end] window within a clip's duration. */
-function TrimBar({
-  duration,
-  start,
-  end,
-  onChange,
-}: {
-  duration: number;
-  start: number;
-  end: number;
-  onChange: (start: number, end: number) => void;
-}) {
-  const barRef = useRef<HTMLDivElement>(null);
-
-  const startDrag = (which: 'start' | 'end') => (e: React.PointerEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const rect = barRef.current?.getBoundingClientRect();
-    if (!rect || !duration) return;
-    const move = (ev: PointerEvent) => {
-      const frac = clamp((ev.clientX - rect.left) / rect.width, 0, 1);
-      const t = +(frac * duration).toFixed(2);
-      if (which === 'start') onChange(Math.min(t, end - 0.2), end);
-      else onChange(start, Math.max(t, start + 0.2));
-    };
-    const up = () => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-    };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-  };
-
-  const leftPct = duration ? (start / duration) * 100 : 0;
-  const rightPct = duration ? (end / duration) * 100 : 100;
-
-  return (
-    <div ref={barRef} className="relative h-8 w-full touch-none select-none rounded-lg bg-rp-bg">
-      <div
-        className="absolute inset-y-0 rounded-lg bg-rp-blue/25"
-        style={{ left: `${leftPct}%`, right: `${100 - rightPct}%` }}
-      />
-      <div
-        onPointerDown={startDrag('start')}
-        title="Drag to set clip start"
-        className="absolute top-0 h-full w-[10px] -translate-x-1/2 cursor-ew-resize rounded bg-rp-blue"
-        style={{ left: `${leftPct}%` }}
-      />
-      <div
-        onPointerDown={startDrag('end')}
-        title="Drag to set clip end"
-        className="absolute top-0 h-full w-[10px] -translate-x-1/2 cursor-ew-resize rounded bg-rp-blue"
-        style={{ left: `${rightPct}%` }}
-      />
-    </div>
-  );
 }
 
 const inputCls =

@@ -4,6 +4,7 @@ import { useEditor } from '../store.ts';
 import { useTransform } from '../useTransform.ts';
 import { ANIM_DUR, framesFor } from '../animations.ts';
 import { coverCropStyle, frameStyle } from '../util.ts';
+import { LockIcon } from './icons.tsx';
 
 interface Props {
   asset: Asset;
@@ -61,6 +62,15 @@ export default function AssetView({ asset, selected, global = false }: Props) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing]);
+
+  // global video: shown on every scene, so it just plays continuously for the
+  // whole video (looping within [trimStart, trimEnd] via the <video>'s own
+  // onTimeUpdate handler) instead of the per-scene start/end window below
+  useEffect(() => {
+    if (!global || asset.type !== 'video' || !playing) return;
+    playClip();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing, global]);
 
   // timeline Play: show at `start` (with entrance), exit near `end`, hide after `end`
   useEffect(() => {
@@ -136,17 +146,17 @@ export default function AssetView({ asset, selected, global = false }: Props) {
       {/* rotate + resize handles, shown only when selected */}
       <div
         data-role="rot"
-        className={`rp-rot-handle absolute left-1/2 -top-7 h-[13px] w-[13px] -translate-x-1/2 cursor-grab rounded-full border-2 border-rp-blue bg-rp-blue${selected && asset.editable ? '' : ' hidden'}`}
+        className={`rp-rot-handle absolute left-1/2 -top-7 h-[13px] w-[13px] -translate-x-1/2 cursor-grab rounded-full border-2 border-rp-blue bg-rp-blue shadow-[var(--shadow-sm)]${selected && asset.editable ? '' : ' hidden'}`}
       />
       <div
         data-role="resize"
-        className={`absolute -right-[7px] -bottom-[7px] h-[13px] w-[13px] cursor-nwse-resize rounded-[3px] border-2 border-rp-blue bg-white${selected && asset.editable ? '' : ' hidden'}`}
+        className={`absolute -right-[7px] -bottom-[7px] h-[13px] w-[13px] cursor-nwse-resize rounded-[3px] border-2 border-rp-blue bg-white shadow-[var(--shadow-sm)]${selected && asset.editable ? '' : ' hidden'}`}
       />
 
       {/* locked indicator (asset can't be moved/resized) */}
       {!asset.editable && (
-        <div className="absolute -top-[9px] -right-[9px] grid h-[18px] w-[18px] place-items-center rounded-full bg-rp-ink text-[10px] text-white shadow">
-          🔒
+        <div className="absolute -top-[9px] -right-[9px] grid h-[18px] w-[18px] place-items-center rounded-full bg-rp-ink text-white shadow-[var(--shadow-sm)]">
+          <LockIcon size={9} />
         </div>
       )}
     </div>

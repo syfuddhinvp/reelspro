@@ -58,7 +58,7 @@ export const ASSET_TYPES: Record<AssetType, AssetDefinition> = {
       h: 40,
       animIn: 'none',
       animOut: 'none',
-      props: { src: '', name: 'Audio', trimStart: 0, volume: 1, muted: false },
+      props: { src: '', name: 'Audio', trimStart: 0, trimEnd: 0, volume: 1, muted: false },
     }),
   },
 };

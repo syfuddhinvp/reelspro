@@ -63,9 +63,9 @@ export default function Consent() {
   };
 
   const submit = () => {
-    if (!name.trim()) return toast('⚠ Please enter the client name');
-    if (!checks.every(Boolean)) return toast('⚠ Please check all three boxes');
-    if (!hasInk.current) return toast('⚠ Please add a signature');
+    if (!name.trim()) return toast('Please enter the client name', 'warning');
+    if (!checks.every(Boolean)) return toast('Please check all three boxes', 'warning');
+    if (!hasInk.current) return toast('Please add a signature', 'warning');
     setStamp(
       `Signed ${new Date().toLocaleString()} · Ref #RP-${Math.floor(Math.random() * 900000 + 100000)}`,
     );
@@ -180,7 +180,7 @@ export default function Consent() {
                 ✓ Submit consent
               </button>
               <button
-                onClick={() => toast('🔗 Share link copied — send to your client')}
+                onClick={() => toast('Share link copied — send to your client', 'success')}
                 className="rounded-[11px] border border-rp-line bg-white px-[18px] py-[10px] text-sm font-semibold hover:border-rp-blue hover:text-rp-blue"
               >
                 Copy share link

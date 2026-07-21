@@ -1,6 +1,6 @@
 import type { View } from '../appStore.ts';
 import { useApp } from '../appStore.ts';
-import { ConsentIcon, DashboardIcon, InviteIcon, TemplatesIcon, VideoIcon } from './icons.tsx';
+import { ConsentIcon, DashboardIcon, InviteIcon, SparkleIcon, TemplatesIcon, VideoIcon } from './icons.tsx';
 
 interface NavDef {
   view: View;
@@ -50,12 +50,15 @@ export default function Sidebar() {
 
       <div className="flex-1" />
 
-      <div className="rounded-[14px] bg-[linear-gradient(135deg,#2563eb,#7c3aed)] p-4 text-[13px]">
-        <b className="mb-1 block text-[14.5px]">You're on Pro ✦</b>
+      <div className="rounded-[14px] bg-[linear-gradient(135deg,#2563eb,#7c3aed)] p-4 text-[13px] shadow-[var(--shadow-md)]">
+        <b className="mb-1 flex items-center gap-[6px] text-[14.5px]">
+          <SparkleIcon size={13} className="text-white/90" />
+          You're on Pro
+        </b>
         <p className="mb-3 leading-[1.4] text-[#dbe4ff]">Unlimited videos, consent & meetings.</p>
         <button
-          onClick={() => toast('Billing is mocked in this demo 🙂')}
-          className="w-full rounded-[9px] bg-white p-[9px] text-[13px] font-bold text-rp-blue-dk"
+          onClick={() => toast('Billing is mocked in this demo', 'info')}
+          className="w-full rounded-[9px] bg-white p-[9px] text-[13px] font-bold text-rp-blue-dk hover:bg-white/90"
         >
           Manage plan
         </button>
@@ -86,9 +89,9 @@ function NavItem({
   return (
     <div
       onClick={onClick}
-      className={`mb-[3px] flex cursor-pointer items-center gap-3 rounded-[11px] px-[13px] py-[11px] text-[14.5px] font-medium transition-colors ${
+      className={`mb-[3px] flex cursor-pointer items-center gap-3 rounded-[11px] px-[13px] py-[11px] text-[14.5px] font-medium ${
         active
-          ? 'bg-rp-blue text-white shadow-[0_6px_16px_rgba(37,99,235,0.4)]'
+          ? 'bg-rp-blue text-white shadow-[var(--shadow-glow-blue)]'
           : 'text-[#b9c6dc] hover:bg-white/[0.07] hover:text-white'
       }`}
     >

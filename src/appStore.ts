@@ -40,14 +40,17 @@ export const VIEW_META: Record<View, { title: string; sub: string }> = {
   },
 };
 
+export type ToastKind = 'success' | 'warning' | 'info';
+
 interface AppState {
   view: View;
   toastMsg: string | null;
+  toastKind: ToastKind;
   toastSeq: number;
   /** fullscreen preview player open? */
   player: boolean;
   go: (view: View) => void;
-  toast: (msg: string) => void;
+  toast: (msg: string, kind?: ToastKind) => void;
   openPlayer: () => void;
   closePlayer: () => void;
 }
@@ -55,10 +58,11 @@ interface AppState {
 export const useApp = create<AppState>((set) => ({
   view: 'dashboard',
   toastMsg: null,
+  toastKind: 'info',
   toastSeq: 0,
   player: false,
   go: (view) => set({ view }),
-  toast: (msg) => set((s) => ({ toastMsg: msg, toastSeq: s.toastSeq + 1 })),
+  toast: (msg, kind = 'info') => set((s) => ({ toastMsg: msg, toastKind: kind, toastSeq: s.toastSeq + 1 })),
   openPlayer: () => set({ player: true }),
   closePlayer: () => set({ player: false }),
 }));
