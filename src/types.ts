@@ -13,14 +13,45 @@ export interface TextProps {
   font: string;
 }
 
+/**
+ * A crop rectangle selected on the source image/video, in fractions (0..1) of
+ * its natural width/height. `{ x: 0, y: 0, w: 1, h: 1 }` selects the full frame.
+ */
+export interface CropSettings {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export const DEFAULT_CROP: CropSettings = { x: 0, y: 0, w: 1, h: 1 };
+
+/** Frame / border styling applied around an image or video box. */
+export interface FrameProps {
+  /** corner radius in px; values >= half the shorter side render as a full pill/circle */
+  radius: number;
+  borderWidth: number;
+  borderColor: string;
+}
+
+export const DEFAULT_FRAME: FrameProps = { radius: 8, borderWidth: 0, borderColor: '#ffffff' };
+/** radius used by the "Circle / pill" preset — clamps to an oval on any box size */
+export const FRAME_CIRCLE_RADIUS = 999;
+
 export interface MediaProps {
   src: string;
+  crop: CropSettings;
+  frame: FrameProps;
 }
 
 export interface VideoProps {
   src: string;
   trimStart: number;
+  /** seconds; 0 means "play through to the end of the source clip" */
+  trimEnd: number;
   muted: boolean;
+  crop: CropSettings;
+  frame: FrameProps;
 }
 
 export interface AudioProps {

@@ -53,7 +53,7 @@ export const TEMPLATES: Template[] = [
 export const CATEGORIES = ['All', 'Real Estate', 'Mortgage', 'Social'];
 
 import type { Asset, AudioClip, Ratio, Scene, VideoTemplate } from './types.ts';
-import { DEFAULT_FONT } from './types.ts';
+import { DEFAULT_CROP, DEFAULT_FONT, DEFAULT_FRAME } from './types.ts';
 import { createAsset } from './assetTypes.ts';
 import { canvasSize } from './util.ts';
 
@@ -121,7 +121,7 @@ function maker(ratio: Ratio, dur: number) {
       animIn: o.in ?? 'zoom',
       animOut: 'fade',
       lockRatio: true,
-      props: { src },
+      props: { src, crop: { ...DEFAULT_CROP }, frame: { ...DEFAULT_FRAME } },
     });
   };
   return { W, H, text, image };
@@ -143,7 +143,7 @@ function globalLogo(src: string, ratio: Ratio): Asset {
     editable: false,
     animIn: 'fade',
     animOut: 'none',
-    props: { src },
+    props: { src, crop: { ...DEFAULT_CROP }, frame: { ...DEFAULT_FRAME } },
   });
 }
 

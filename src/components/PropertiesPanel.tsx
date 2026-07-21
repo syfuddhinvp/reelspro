@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Asset, AudioProps, TextProps, VideoProps } from '../types.ts';
-import { FONTS, SWATCHES } from '../types.ts';
+import type { Asset, AudioProps, FrameProps, MediaProps, TextProps, VideoProps } from '../types.ts';
+import { FONTS, FRAME_CIRCLE_RADIUS, SWATCHES } from '../types.ts';
 import { ASSET_TYPES } from '../assetTypes.ts';
 import { useEditor } from '../store.ts';
 import type { AlignHow } from '../store.ts';
 import { canvasSize } from '../util.ts';
 import { IN_ANIMS, OUT_ANIMS } from '../animations.ts';
 import { SCENE_BG_PRESETS } from '../data.ts';
+import CropModal from './CropModal.tsx';
 
 type Tab = 'scene' | 'layout' | 'style' | 'animate';
 
@@ -314,18 +315,25 @@ function LayoutTab({ asset, sceneDur }: { asset: Asset; sceneDur: number }) {
 /* ---------- Style tab ---------- */
 
 function StyleTab({ asset }: { asset: Asset }) {
+  const [cropOpen, setCropOpen] = useState(false);
+  const isMedia = asset.type === 'image' || asset.type === 'logo' || asset.type === 'video';
+
   return (
     <>
       <SectionTitle>{ASSET_TYPES[asset.type].label} · style</SectionTitle>
       {asset.type === 'text' && <TextFields asset={asset} />}
-      {asset.type === 'video' && <VideoFields asset={asset} />}
+      {asset.type === 'video' && <VideoFields asset={asset} onCrop={() => setCropOpen(true)} />}
       {asset.type === 'audio' && <AudioFields asset={asset} />}
       {(asset.type === 'image' || asset.type === 'logo') && (
-        <p className="text-xs text-rp-mute">
-          {ASSET_TYPES[asset.type].label} assets are styled by resizing on the canvas and adjusting
-          opacity in the Layout tab.
-        </p>
+        <button
+          onClick={() => setCropOpen(true)}
+          className="mb-4 w-full rounded-lg border border-rp-line bg-white py-[7px] text-[13px] font-semibold text-rp-ink hover:border-rp-blue hover:text-rp-blue"
+        >
+          ✂ Crop image
+        </button>
       )}
+      {isMedia && <FrameFields asset={asset} />}
+      {isMedia && cropOpen && <CropModal asset={asset} onClose={() => setCropOpen(false)} />}
     </>
   );
 }
@@ -395,25 +403,132 @@ function TextFields({ asset }: { asset: Asset }) {
   );
 }
 
-function VideoFields({ asset }: { asset: Asset }) {
+function VideoFields({ asset, onCrop }: { asset: Asset; onCrop: () => void }) {
   const p = asset.props as VideoProps;
   const updateAssetProps = useEditor((s) => s.updateAssetProps);
   return (
     <>
-      <Field label="Trim start (s)">
-        <input
-          type="number"
-          min={0}
-          step={0.5}
-          value={p.trimStart}
-          onChange={(e) => updateAssetProps(asset.id, { trimStart: Number(e.target.value) })}
-          className={inputCls}
-        />
-      </Field>
+      <button
+        onClick={onCrop}
+        className="mb-3 w-full rounded-lg border border-rp-line bg-white py-[7px] text-[13px] font-semibold text-rp-ink hover:border-rp-blue hover:text-rp-blue"
+      >
+        ✂ Crop &amp; trim clip
+      </button>
+      <div className="grid grid-cols-2 gap-2">
+        <Field label="Trim start (s)">
+          <input
+            type="number"
+            min={0}
+            step={0.5}
+            value={p.trimStart}
+            onChange={(e) => updateAssetProps(asset.id, { trimStart: Number(e.target.value) })}
+            className={inputCls}
+          />
+        </Field>
+        <Field label="Trim end (s)">
+          <input
+            type="number"
+            min={0}
+            step={0.5}
+            placeholder="Full length"
+            value={p.trimEnd || ''}
+            onChange={(e) => updateAssetProps(asset.id, { trimEnd: Number(e.target.value) })}
+            className={inputCls}
+          />
+        </Field>
+      </div>
       <label className="mt-1 flex items-center gap-2 text-[13px]">
         <input type="checkbox" checked={p.muted} onChange={(e) => updateAssetProps(asset.id, { muted: e.target.checked })} />
         Mute clip audio
       </label>
+    </>
+  );
+}
+
+/** Frame presets: [label, radius]. Circle/pill uses a radius far past any box's half-width. */
+const FRAME_PRESETS: { label: string; radius: number }[] = [
+  { label: 'Square', radius: 0 },
+  { label: 'Rounded', radius: 16 },
+  { label: 'Circle', radius: FRAME_CIRCLE_RADIUS },
+];
+
+/** Corner-radius + border controls shared by image, logo, and video assets. */
+function FrameFields({ asset }: { asset: Asset }) {
+  const p = asset.props as MediaProps | VideoProps;
+  const frame = p.frame;
+  const updateAssetProps = useEditor((s) => s.updateAssetProps);
+  const setFrame = (patch: Partial<FrameProps>) =>
+    updateAssetProps(asset.id, { frame: { ...frame, ...patch } });
+
+  const isPreset = (r: number) => (r >= FRAME_CIRCLE_RADIUS ? frame.radius >= FRAME_CIRCLE_RADIUS : frame.radius === r);
+
+  return (
+    <>
+      <SubLabel>Frame shape</SubLabel>
+      <OptBtns>
+        {FRAME_PRESETS.map((preset) => (
+          <OptBtn
+            key={preset.label}
+            onClick={() => setFrame({ radius: preset.radius })}
+            className={isPreset(preset.radius) ? 'border-rp-blue bg-rp-blue-soft text-rp-blue' : ''}
+          >
+            {preset.label}
+          </OptBtn>
+        ))}
+      </OptBtns>
+
+      <Field label={`Corner radius (${Math.min(frame.radius, 100)}px)`}>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={Math.min(frame.radius, 100)}
+          onChange={(e) => setFrame({ radius: Number(e.target.value) })}
+          className="w-full"
+        />
+      </Field>
+
+      <Field label={`Border width (${frame.borderWidth}px)`}>
+        <input
+          type="range"
+          min={0}
+          max={20}
+          value={frame.borderWidth}
+          onChange={(e) => setFrame({ borderWidth: Number(e.target.value) })}
+          className="w-full"
+        />
+      </Field>
+
+      {frame.borderWidth > 0 && (
+        <Field label="Border color">
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={normalizeHex(frame.borderColor)}
+              onChange={(e) => setFrame({ borderColor: e.target.value })}
+              className="h-9 w-10 cursor-pointer rounded-[8px] border border-rp-line bg-white p-[2px]"
+            />
+            <input
+              value={frame.borderColor}
+              onChange={(e) => setFrame({ borderColor: e.target.value })}
+              spellCheck={false}
+              className={`${inputCls} flex-1 uppercase`}
+            />
+          </div>
+          <div className="mt-2 flex flex-wrap gap-[6px]">
+            {SWATCHES.map((c) => (
+              <div
+                key={c}
+                onClick={() => setFrame({ borderColor: c })}
+                style={{ background: c }}
+                className={`h-6 w-6 cursor-pointer rounded-[6px] border-2 ${
+                  c.toLowerCase() === frame.borderColor.toLowerCase() ? 'border-rp-ink' : 'border-rp-line'
+                }`}
+              />
+            ))}
+          </div>
+        </Field>
+      )}
     </>
   );
 }
@@ -583,16 +698,18 @@ function OptBtn({
   children,
   onClick,
   title,
+  className = '',
 }: {
   children: React.ReactNode;
   onClick: () => void;
   title?: string;
+  className?: string;
 }) {
   return (
     <button
       title={title}
       onClick={onClick}
-      className="min-w-[42px] flex-1 cursor-pointer rounded-lg border border-rp-line bg-white p-[7px] text-[13px] font-semibold text-rp-ink hover:border-rp-blue hover:text-rp-blue"
+      className={`min-w-[42px] flex-1 cursor-pointer rounded-lg border border-rp-line bg-white p-[7px] text-[13px] font-semibold text-rp-ink hover:border-rp-blue hover:text-rp-blue ${className}`}
     >
       {children}
     </button>

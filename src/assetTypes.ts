@@ -1,5 +1,5 @@
 import type { Asset, AssetProps, AssetType } from './types.ts';
-import { DEFAULT_FONT } from './types.ts';
+import { DEFAULT_CROP, DEFAULT_FONT, DEFAULT_FRAME } from './types.ts';
 
 interface AssetDefinition {
   label: string;
@@ -22,7 +22,7 @@ export const ASSET_TYPES: Record<AssetType, AssetDefinition> = {
       w: 180,
       h: 180,
       lockRatio: true,
-      props: { src: '' },
+      props: { src: '', crop: { ...DEFAULT_CROP }, frame: { ...DEFAULT_FRAME } },
     }),
   },
   logo: {
@@ -33,7 +33,7 @@ export const ASSET_TYPES: Record<AssetType, AssetDefinition> = {
       w: 80,
       h: 80,
       lockRatio: true,
-      props: { src: '' },
+      props: { src: '', crop: { ...DEFAULT_CROP }, frame: { ...DEFAULT_FRAME } },
     }),
   },
   video: {
@@ -41,7 +41,14 @@ export const ASSET_TYPES: Record<AssetType, AssetDefinition> = {
     defaults: () => ({
       w: 220,
       h: 300,
-      props: { src: '', trimStart: 0, muted: true },
+      props: {
+        src: '',
+        trimStart: 0,
+        trimEnd: 0,
+        muted: true,
+        crop: { ...DEFAULT_CROP },
+        frame: { ...DEFAULT_FRAME },
+      },
     }),
   },
   audio: {

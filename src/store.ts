@@ -5,6 +5,7 @@ import type {
   AssetType,
   AudioClip,
   AudioProps,
+  MediaProps,
   PublishConfig,
   Ratio,
   Scene,
@@ -56,7 +57,7 @@ interface EditorState {
   layer: (dir: 1 | -1) => void;
   align: (how: AlignHow, boxW: number, boxH: number) => void;
   updateAsset: (id: number, patch: Partial<Asset>) => void;
-  updateAssetProps: (id: number, patch: Partial<TextProps & VideoProps & AudioProps>) => void;
+  updateAssetProps: (id: number, patch: Partial<TextProps & MediaProps & VideoProps & AudioProps>) => void;
 
   // audio
   setBgAudio: (clip: AudioClip | null) => void;

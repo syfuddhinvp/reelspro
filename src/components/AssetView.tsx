@@ -3,6 +3,7 @@ import type { Asset, MediaProps, TextProps, VideoProps } from '../types.ts';
 import { useEditor } from '../store.ts';
 import { useTransform } from '../useTransform.ts';
 import { ANIM_DUR, framesFor } from '../animations.ts';
+import { coverCropStyle, frameStyle } from '../util.ts';
 
 interface Props {
   asset: Asset;
@@ -161,29 +162,60 @@ function Inner({
   selected: boolean;
   mediaRef: React.RefObject<HTMLVideoElement | null>;
 }) {
+  // natural pixel size of the source image/video, once it loads — needed to
+  // map the crop rectangle's fractions onto real pixels without distortion
+  const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
+
   if (asset.type === 'text') return <TextAsset asset={asset} selected={selected} />;
 
   if (asset.type === 'video') {
     const p = asset.props as VideoProps;
     return (
-      <video
-        src={p.src}
-        muted={p.muted}
-        playsInline
-        preload="metadata"
-        className="pointer-events-none block h-full w-full rounded-md object-cover"
-        ref={(el) => {
-          mediaRef.current = el;
-          if (el) el.currentTime = p.trimStart + 0.1;
-        }}
-      />
+      <div
+        className="pointer-events-none relative h-full w-full overflow-hidden"
+        style={frameStyle(p.frame)}
+      >
+        <video
+          src={p.src}
+          muted={p.muted}
+          playsInline
+          preload="metadata"
+          className="block h-full w-full object-cover"
+          style={natural ? coverCropStyle(p.crop, natural, asset.w, asset.h) : undefined}
+          ref={(el) => {
+            mediaRef.current = el;
+            if (el) el.currentTime = p.trimStart + 0.1;
+          }}
+          onLoadedMetadata={(e) =>
+            setNatural({ w: e.currentTarget.videoWidth, h: e.currentTarget.videoHeight })
+          }
+          onTimeUpdate={(e) => {
+            // loop the selected [trimStart, trimEnd] window while it's on screen
+            const v = e.currentTarget;
+            if (p.trimEnd > p.trimStart && v.currentTime >= p.trimEnd) {
+              v.currentTime = p.trimStart;
+            }
+          }}
+        />
+      </div>
     );
   }
 
   // image / logo
   const p = asset.props as MediaProps;
   return (
-    <img src={p.src} alt="" className="pointer-events-none block h-full w-full object-contain" />
+    <div
+      className="pointer-events-none relative h-full w-full overflow-hidden"
+      style={frameStyle(p.frame)}
+    >
+      <img
+        src={p.src}
+        alt=""
+        className="block h-full w-full object-cover"
+        style={natural ? coverCropStyle(p.crop, natural, asset.w, asset.h) : undefined}
+        onLoad={(e) => setNatural({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+      />
+    </div>
   );
 }
 
